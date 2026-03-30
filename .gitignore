@@ -1,0 +1,20 @@
+# Terraform
+infra/terraform/.terraform/
+infra/terraform/terraform.tfstate
+infra/terraform/terraform.tfstate.backup
+infra/terraform/terraform.tfvars
+infra/terraform/*.tfstate.*
+infra/terraform/tfplan
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Wrangler
+.wrangler/
+
+# Claude Code
+.claude/
