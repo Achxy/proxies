@@ -1,7 +1,14 @@
 resource "google_cloud_run_v2_service" "proxy" {
-  name                = "proxies-llm"
-  location            = var.gcp_region
-  deletion_protection = false
+  name     = "proxies-llm"
+  location = var.gcp_region
+
+  # deletion_protection = true prevents accidental destruction via terraform destroy
+  # or direct API calls. To destroy this service intentionally:
+  #   1. Temporarily set deletion_protection = false in this file
+  #   2. terraform apply -target=google_cloud_run_v2_service.proxy
+  #   3. terraform destroy
+  #   4. Revert (or leave it, since the resource is gone)
+  deletion_protection = true
 
   template {
     service_account = google_service_account.proxy.email
@@ -14,9 +21,9 @@ resource "google_cloud_run_v2_service" "proxy" {
     }
 
     containers {
-      image   = "docker.io/eceasy/cli-proxy-api:latest"
+      image   = "docker.io/eceasy/cli-proxy-api:${var.image_tag}"
       command = ["./CLIProxyAPI"]
-      args    = ["--config", "/data/config.yaml"]
+      args    = ["--config", "/config/config.yaml"]
 
       ports {
         container_port = 8317
@@ -34,9 +41,16 @@ resource "google_cloud_run_v2_service" "proxy" {
         value = "cloud"
       }
 
+      # GCS FUSE: persistent auth token storage at /data/auths
       volume_mounts {
         name       = "proxy-data"
         mount_path = "/data"
+      }
+
+      # Secret Manager: config.yaml mounted as a file at /config/config.yaml
+      volume_mounts {
+        name       = "app-config"
+        mount_path = "/config"
       }
 
       startup_probe {
@@ -57,12 +71,24 @@ resource "google_cloud_run_v2_service" "proxy" {
         read_only = false
       }
     }
+
+    volumes {
+      name = "app-config"
+      secret {
+        secret = google_secret_manager_secret.app_config.secret_id
+        items {
+          version = "latest"
+          path    = "config.yaml"
+        }
+      }
+    }
   }
 
   depends_on = [
     google_project_service.run,
-    google_storage_bucket_object.config,
     google_storage_bucket_iam_member.proxy_data_access,
+    google_secret_manager_secret_iam_member.proxy_secret_accessor,
+    google_secret_manager_secret_version.app_config,
   ]
 }
 
