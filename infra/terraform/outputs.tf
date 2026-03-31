@@ -10,11 +10,11 @@ output "custom_url" {
 
 output "dashboard_url" {
   description = "Management dashboard URL"
-  value       = "https://${var.domain}/v0/management"
+  value       = "https://${var.domain}/management.html"
 }
 
 output "bucket_name" {
-  description = "GCS bucket for persistent data"
+  description = "GCS bucket for persistent auth token storage"
   value       = google_storage_bucket.data.name
 }
 
