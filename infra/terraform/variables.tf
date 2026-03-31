@@ -32,8 +32,14 @@ variable "management_secret" {
   sensitive   = true
 }
 
-variable "api_keys" {
-  description = "API keys for client authentication to the proxy"
-  type        = list(string)
-  sensitive   = true
+variable "image_tag" {
+  description = "CLIProxyAPI Docker image tag to deploy"
+  type        = string
+  default     = "v6.9.6"
+}
+
+variable "config_version" {
+  description = "Increment this to force a new Secret Manager secret version on next apply (triggers config rotation)"
+  type        = number
+  default     = 1
 }
