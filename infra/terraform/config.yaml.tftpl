@@ -9,10 +9,13 @@ remote-management:
   secret-key: "${management_secret}"
   disable-control-panel: false
 
+# Auth tokens are stored in the GCS-backed /data/auths directory,
+# managed entirely via the management dashboard.
 auth-dir: "/data/auths"
 
-api-keys:
-${api_keys_yaml}
+# API keys are managed via the management dashboard, not Terraform.
+# Add keys at https://llm.proxies.of.achyuth.dev/management.html
+api-keys: []
 
 routing:
   strategy: "round-robin"
