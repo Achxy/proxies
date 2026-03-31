@@ -23,7 +23,7 @@ resource "google_cloud_run_v2_service" "proxy" {
     containers {
       image   = "docker.io/eceasy/cli-proxy-api:${var.image_tag}"
       command = ["./CLIProxyAPI"]
-      args    = ["--config", "/config/config.yaml"]
+      args    = ["--config", "/data/config.yaml"]
 
       ports {
         container_port = 8317
@@ -41,16 +41,17 @@ resource "google_cloud_run_v2_service" "proxy" {
         value = "cloud"
       }
 
-      # GCS FUSE: persistent auth token storage at /data/auths
+      # Direct all app writes (management UI assets, logs) to the GCS FUSE
+      # mount so they persist across container restarts and cold starts.
+      # Also fixes a known path-resolution inconsistency in the logging system.
+      env {
+        name  = "WRITABLE_PATH"
+        value = "/data"
+      }
+
       volume_mounts {
         name       = "proxy-data"
         mount_path = "/data"
-      }
-
-      # Secret Manager: config.yaml mounted as a file at /config/config.yaml
-      volume_mounts {
-        name       = "app-config"
-        mount_path = "/config"
       }
 
       startup_probe {
@@ -71,24 +72,12 @@ resource "google_cloud_run_v2_service" "proxy" {
         read_only = false
       }
     }
-
-    volumes {
-      name = "app-config"
-      secret {
-        secret = google_secret_manager_secret.app_config.secret_id
-        items {
-          version = "latest"
-          path    = "config.yaml"
-        }
-      }
-    }
   }
 
   depends_on = [
     google_project_service.run,
+    google_storage_bucket_object.config,
     google_storage_bucket_iam_member.proxy_data_access,
-    google_secret_manager_secret_iam_member.proxy_secret_accessor,
-    google_secret_manager_secret_version.app_config,
   ]
 }
 

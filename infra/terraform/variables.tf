@@ -38,8 +38,3 @@ variable "image_tag" {
   default     = "v6.9.6"
 }
 
-variable "config_version" {
-  description = "Increment this to force a new Secret Manager secret version on next apply (triggers config rotation)"
-  type        = number
-  default     = 1
-}
