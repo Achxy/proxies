@@ -5,7 +5,3 @@ cloudflare_zone_id   = "your-achyuth-dev-zone-id"
 domain               = "llm.proxies.of.achyuth.dev"
 management_secret    = "your-strong-management-password"
 image_tag            = "v6.9.6"
-
-# Increment config_version to push a new Secret Manager version on the next
-# terraform apply — required any time you change management_secret.
-config_version = 1
