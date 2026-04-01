@@ -9,12 +9,22 @@ output "custom_url" {
 }
 
 output "dashboard_url" {
-  description = "Management dashboard URL"
-  value       = "https://${var.domain}/management.html"
+  description = "LiteLLM admin dashboard"
+  value       = "https://${var.domain}/ui"
+}
+
+output "cliproxy_service_url" {
+  description = "CLIProxyAPI Cloud Run auto-generated URL (for testing)"
+  value       = google_cloud_run_v2_service.cliproxy.uri
+}
+
+output "cliproxy_custom_url" {
+  description = "CLIProxyAPI custom domain URL"
+  value       = "https://${var.cliproxy_domain}"
 }
 
 output "bucket_name" {
-  description = "GCS bucket for persistent auth token storage"
+  description = "GCS bucket for LiteLLM config"
   value       = google_storage_bucket.data.name
 }
 
