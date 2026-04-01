@@ -1,0 +1,5 @@
+port: 8317
+api-keys:
+  - "REPLACE_ME"
+remote-management:
+  allow-remote: true
