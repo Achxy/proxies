@@ -1,0 +1,10 @@
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  proxy_batch_write_at: 60
+  database_connection_pool_limit: 10
+
+litellm_settings:
+  drop_params: true
+  request_timeout: 600
+  set_verbose: false
+  json_logs: true

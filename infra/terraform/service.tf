@@ -2,18 +2,10 @@ resource "google_cloud_run_v2_service" "proxy" {
   name     = "proxies-llm"
   location = var.gcp_region
 
-  # deletion_protection = true prevents accidental destruction via terraform destroy
-  # or direct API calls. To destroy this service intentionally:
-  #   1. Temporarily set deletion_protection = false in this file
-  #   2. terraform apply -target=google_cloud_run_v2_service.proxy
-  #   3. terraform destroy
-  #   4. Revert (or leave it, since the resource is gone)
   deletion_protection = true
 
   template {
     service_account = google_service_account.proxy.email
-
-    execution_environment = "EXECUTION_ENVIRONMENT_GEN2"
 
     scaling {
       min_instance_count = 0
@@ -21,63 +13,113 @@ resource "google_cloud_run_v2_service" "proxy" {
     }
 
     containers {
-      image   = "docker.io/eceasy/cli-proxy-api:${var.image_tag}"
-      command = ["./CLIProxyAPI"]
-      args    = ["--config", "/data/config.yaml"]
+      image = "${var.gcp_region}-docker.pkg.dev/${var.gcp_project}/${google_artifact_registry_repository.ghcr_proxy.repository_id}/berriai/litellm-database:${var.image_tag}"
+      args  = ["--config", "/config/litellm_config.yaml", "--port", "4000"]
 
       ports {
-        container_port = 8317
+        container_port = 4000
       }
 
       resources {
         limits = {
-          cpu    = "1"
-          memory = "512Mi"
+          cpu    = "2"
+          memory = "2Gi"
         }
       }
 
       env {
-        name  = "DEPLOY"
-        value = "cloud"
+        name  = "LITELLM_MODE"
+        value = "PRODUCTION"
+      }
+      env {
+        name  = "LITELLM_LOG"
+        value = "ERROR"
+      }
+      env {
+        name  = "STORE_MODEL_IN_DB"
+        value = "True"
       }
 
-      # Direct all app writes (management UI assets, logs) to the GCS FUSE
-      # mount so they persist across container restarts and cold starts.
-      # Also fixes a known path-resolution inconsistency in the logging system.
+      # Secrets from Secret Manager
       env {
-        name  = "WRITABLE_PATH"
-        value = "/data"
+        name = "DATABASE_URL"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.database_url.secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "LITELLM_MASTER_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.litellm_master_key.secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "LITELLM_SALT_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.litellm_salt_key.secret_id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "CLIPROXY_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.cliproxy_upstream_key.secret_id
+            version = "latest"
+          }
+        }
       }
 
       volume_mounts {
-        name       = "proxy-data"
-        mount_path = "/data"
+        name       = "config"
+        mount_path = "/config"
       }
 
       startup_probe {
-        tcp_socket {
-          port = 8317
+        http_get {
+          path = "/health/liveliness"
+          port = 4000
         }
-        initial_delay_seconds = 10
-        period_seconds        = 5
-        failure_threshold     = 12
+        initial_delay_seconds = 30
+        period_seconds        = 10
+        failure_threshold     = 30
         timeout_seconds       = 3
       }
     }
 
     volumes {
-      name = "proxy-data"
-      gcs {
-        bucket    = google_storage_bucket.data.name
-        read_only = false
+      name = "config"
+      secret {
+        secret = google_secret_manager_secret.litellm_config.secret_id
+        items {
+          version = "latest"
+          path    = "litellm_config.yaml"
+        }
       }
     }
   }
 
   depends_on = [
     google_project_service.run,
-    google_storage_bucket_object.config,
-    google_storage_bucket_iam_member.proxy_data_access,
+    google_secret_manager_secret_version.litellm_config,
+    google_secret_manager_secret_version.database_url,
+    google_secret_manager_secret_version.litellm_master_key,
+    google_secret_manager_secret_version.litellm_salt_key,
+    google_secret_manager_secret_iam_member.proxy_config,
+    google_secret_manager_secret_iam_member.proxy_database_url,
+    google_secret_manager_secret_iam_member.proxy_master_key,
+    google_secret_manager_secret_iam_member.proxy_salt_key,
+    google_secret_manager_secret_version.cliproxy_upstream_key,
+    google_secret_manager_secret_iam_member.proxy_cliproxy_upstream_key,
   ]
 }
 
